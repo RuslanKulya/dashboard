@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Дашборд контекстных кампаний</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    :root {
+      --bg-1: #f6f8fc;
+      --bg-2: #dde9ff;
+      --ink: #13233b;
+      --muted: #52637a;
+      --card: #ffffff;
+      --line: #d7dfeb;
+      --accent-a: #0b84f3;
+      --accent-b: #ff7a59;
+      --accent-c: #0f9d6a;
+      --danger: #c72d4f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(11,132,243,0.16), transparent 32%),
+        radial-gradient(circle at 90% 15%, rgba(255,122,89,0.14), transparent 25%),
+        linear-gradient(130deg, var(--bg-1), var(--bg-2));
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .shell {
+      width: min(1920px, calc(100vw - 16px));
+      max-width: 100%;
+      margin: 8px auto 18px;
+      padding: 0;
+      display: grid;
+      gap: 14px;
+    }
+    .panel {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 18px;
+      box-shadow: 0 14px 44px rgba(18, 40, 76, 0.12);
+      overflow: hidden;
+      animation: rise 0.6s ease both;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero {
+      padding: 22px 26px 16px;
+      display: grid;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(120deg, rgba(11,132,243,0.12), rgba(255,122,89,0.08));
+    }
+    .title {
+      margin: 0;
+      font-family: "Space Grotesk", "Manrope", sans-serif;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: 0.3px;
+    }
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .badge {
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+    }
+    .badge.good { color: #0d7a4a; }
+    .badge.warn { color: #8f5c00; }
+    .month-switch {
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.84);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 6px 10px;
+      width: fit-content;
+    }
+    .month-switch label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #264368;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .month-switch select {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: #1f385a;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 5px 8px;
+      min-width: 130px;
+      outline: none;
+    }
+    .month-switch select:focus {
+      border-color: #0b84f3;
+      box-shadow: 0 0 0 2px rgba(11,132,243,0.14);
+    }
+    .grid-kpi {
+      padding: 14px 16px 18px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: linear-gradient(150deg, #ffffff, #f2f7ff);
+    }
+    .kpi-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .kpi-value {
+      font-size: clamp(20px, 2vw, 30px);
+      font-weight: 800;
+      line-height: 1.05;
+    }
+    .kpi-note {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .grid-charts {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: 14px;
+      padding: 0 16px 16px;
+    }
+    .chart-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+      padding: 10px 12px;
+      min-width: 0;
+    }
+    .chart-title {
+      margin: 2px 0 8px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #1b3355;
+    }
+    .canvas-wrap {
+      height: 290px;
+    }
+    #map {
+      width: 100%;
+      height: 380px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+    .grid-bottom {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 0 16px 16px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+      max-width: 100%;
+      width: 100%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+      font-size: 12px;
+    }
+    td {
+      border-bottom: 1px solid #e6edf7;
+      padding: 8px 8px;
+      white-space: nowrap;
+    }
+    th {
+      border-bottom: 1px solid #e6edf7;
+      padding: 8px 8px;
+      position: sticky;
+      top: 0;
+      background: #f0f5ff;
+      color: #244368;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: normal;
+      line-height: 1.15;
+      z-index: 1;
+    }
+    th:first-child, td:first-child {
+      min-width: 140px;
+    }
+    td.right { text-align: right; font-variant-numeric: tabular-nums; }
+    td.left { text-align: left; }
+    .empty-row {
+      text-align: center;
+      color: var(--muted);
+      font-style: italic;
+      padding: 14px;
+    }
+    .section-head {
+      padding: 14px 16px 8px;
+      font-size: 17px;
+      font-weight: 800;
+      color: #1c375a;
+    }
+    .foot {
+      padding: 10px 16px 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 1180px) {
+      .grid-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-charts { grid-template-columns: 1fr; }
+      .canvas-wrap { height: 260px; }
+      #map { height: 320px; }
+      table { min-width: 760px; }
+    }
+    @media (max-width: 760px) {
+      .shell { width: calc(100vw - 8px); margin: 4px auto 10px; padding: 0; }
+      .panel { border-radius: 14px; }
+      .hero { padding: 16px 14px 12px; }
+      .grid-kpi, .grid-charts, .grid-bottom { padding-left: 10px; padding-right: 10px; }
+      .kpi-value { font-size: 22px; }
+      .canvas-wrap { height: 220px; }
+      #map { height: 270px; }
+      .month-switch { width: 100%; justify-content: space-between; }
+      .month-switch select { min-width: 110px; }
+      table { min-width: 620px; font-size: 11px; }
+      th, td { padding: 7px 6px; }
+      th:first-child, td:first-child { min-width: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="panel">
+      <div class="hero">
+        <h1 class="title">Дашборд контекстных кампаний</h1>
+        <p class="subtitle">Источник: Отчет по компаниям контекст09.03.xlsx | Последний месяц: Февраль | Обновлено: 2026-03-10 11:24</p>
+        <div class="badges">
+          <span id="badgeSpendDelta" class="badge good">Изм. расходов: -3.3%</span>
+          <span id="badgeProfitDelta" class="badge good">Изм. валовой прибыли: 32.1%</span>
+          <span id="badgeSalesDelta" class="badge good">Изм. продаж: 21.2%</span>
+        </div>
+        <div class="month-switch">
+          <label for="monthSelect">Месяц карты</label>
+          <select id="monthSelect">
+            <option value="Август">Август</option>
+<option value="Сентябрь">Сентябрь</option>
+<option value="Октябрь">Октябрь</option>
+<option value="Ноябрь">Ноябрь</option>
+<option value="Декабрь">Декабрь</option>
+<option value="Январь">Январь</option>
+<option value="Февраль" selected>Февраль</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-kpi">
+        <div class="kpi">
+          <div class="kpi-label">Расходы GA</div>
+          <div class="kpi-value" id="kpiAdSpendValue">1 245</div>
+          <div class="kpi-note" id="kpiAdSpendNote">за Февраль</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Валовая прибыль</div>
+          <div class="kpi-value" id="kpiProfitValue">12 523</div>
+          <div class="kpi-note" id="kpiProfitNote">итого по всем группам</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">ВП Моторка</div>
+          <div class="kpi-value" id="kpiMotorValue">10 808</div>
+          <div class="kpi-note" id="kpiMotorNote">доля 86.3%</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">ВП Прочее</div>
+          <div class="kpi-value" id="kpiOtherValue">1 715</div>
+          <div class="kpi-note" id="kpiOtherNote">без моторного отдела</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">ROI</div>
+          <div class="kpi-value" id="kpiRoiValue">10.06x</div>
+          <div class="kpi-note">прибыль / расходы</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Продажи / Лиды</div>
+          <div class="kpi-value" id="kpiSalesLeadsValue">63 / 206</div>
+          <div class="kpi-note" id="kpiSalesLeadsNote">конверсия 30.6%</div>
+        </div>
+      </div>
+
+      <div class="grid-charts">
+        <div class="chart-card">
+          <div class="chart-title">Динамика расходов и валовой прибыли по месяцам</div>
+          <div class="canvas-wrap"><canvas id="chartMonthly"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title" id="salesShareTitle">Структура продаж по группам (Февраль)</div>
+          <div class="canvas-wrap"><canvas id="chartSalesShare"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title" id="groupChartTitle">Сравнение групп: расходы vs прибыль (Февраль)</div>
+          <div class="canvas-wrap"><canvas id="chartGroups"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title" id="topCampaignsTitle">Топ кампаний по расходам (Февраль)</div>
+          <div class="canvas-wrap"><canvas id="chartTopCampaigns"></canvas></div>
+        </div>
+      </div>
+
+      <div class="section-head" id="mapTitle">Карта эффективности по группам (Февраль)</div>
+      <div style="padding: 0 16px 16px;">
+        <div id="map"></div>
+      </div>
+
+      <div class="grid-bottom">
+        <div class="chart-card">
+          <div class="chart-title">Помесячная сводка</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Месяц</th>
+                  <th>Расходы</th>
+                  <th>Валовая прибыль</th>
+                  <th>ВП Моторка</th>
+                  <th>ВП Прочее</th>
+                  <th>Доля моторки</th>
+                  <th>Продажи</th>
+                  <th>Лиды</th>
+                  <th>ROI</th>
+                  <th>CPC</th>
+                  <th>CPL</th>
+                  <th>Конверсия</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="left">Август</td><td class="right">1 476</td><td class="right">6 635</td><td class="right">2 982</td><td class="right">3 653</td><td class="right">44.9%</td><td class="right">52</td><td class="right">112</td><td class="right">4.50x</td><td class="right">0.09</td><td class="right">13.18</td><td class="right">46.4%</td></tr>
+<tr><td class="left">Сентябрь</td><td class="right">1 479</td><td class="right">11 156</td><td class="right">3 435</td><td class="right">7 721</td><td class="right">30.8%</td><td class="right">78</td><td class="right">260</td><td class="right">7.54x</td><td class="right">0.09</td><td class="right">5.69</td><td class="right">30.0%</td></tr>
+<tr><td class="left">Октябрь</td><td class="right">1 485</td><td class="right">8 639</td><td class="right">6 666</td><td class="right">1 973</td><td class="right">77.2%</td><td class="right">77</td><td class="right">240</td><td class="right">5.82x</td><td class="right">0.09</td><td class="right">6.19</td><td class="right">32.1%</td></tr>
+<tr><td class="left">Ноябрь</td><td class="right">1 461</td><td class="right">8 173</td><td class="right">5 571</td><td class="right">2 602</td><td class="right">68.2%</td><td class="right">70</td><td class="right">197</td><td class="right">5.59x</td><td class="right">0.08</td><td class="right">7.42</td><td class="right">35.5%</td></tr>
+<tr><td class="left">Декабрь</td><td class="right">1 353</td><td class="right">4 900</td><td class="right">2 186</td><td class="right">2 714</td><td class="right">44.6%</td><td class="right">61</td><td class="right">181</td><td class="right">3.62x</td><td class="right">0.08</td><td class="right">7.48</td><td class="right">33.7%</td></tr>
+<tr><td class="left">Январь</td><td class="right">1 288</td><td class="right">9 481</td><td class="right">9 191</td><td class="right">290</td><td class="right">96.9%</td><td class="right">52</td><td class="right">181</td><td class="right">7.36x</td><td class="right">0.08</td><td class="right">7.12</td><td class="right">28.7%</td></tr>
+<tr><td class="left">Февраль</td><td class="right">1 245</td><td class="right">12 523</td><td class="right">10 808</td><td class="right">1 715</td><td class="right">86.3%</td><td class="right">63</td><td class="right">206</td><td class="right">10.06x</td><td class="right">0.08</td><td class="right">6.04</td><td class="right">30.6%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title" id="groupTableTitle">Сводка групп (Февраль)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Группа</th>
+                  <th>Расходы</th>
+                  <th>Валовая прибыль</th>
+                  <th>ВП Моторка</th>
+                  <th>ВП Прочее</th>
+                  <th>Доля моторки</th>
+                  <th>Продажи</th>
+                  <th>Лиды</th>
+                  <th>ROI</th>
+                  <th>Доля продаж</th>
+                </tr>
+              </thead>
+              <tbody id="groupTableBody">
+                <tr><td class="left">Кампании КВ1</td><td class="right">581</td><td class="right">1 728</td><td class="right">1 250</td><td class="right">478</td><td class="right">72.3%</td><td class="right">11</td><td class="right">25</td><td class="right">2.97x</td><td class="right">17.5%</td></tr>
+<tr><td class="left">Кампании ХРК+ДНП</td><td class="right">403</td><td class="right">10 723</td><td class="right">9 486</td><td class="right">1 237</td><td class="right">88.5%</td><td class="right">51</td><td class="right">179</td><td class="right">26.61x</td><td class="right">81.0%</td></tr>
+<tr><td class="left">Кампании ЛВВ</td><td class="right">261</td><td class="right">72</td><td class="right">72</td><td class="right">0</td><td class="right">100.0%</td><td class="right">1</td><td class="right">2</td><td class="right">0.28x</td><td class="right">1.6%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head" id="topCampaignsSectionTitle">Рейтинг кампаний (Февраль)</div>
+      <div style="padding: 0 16px 16px;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Группа</th>
+                <th>Кампания</th>
+                <th>Расходы</th>
+                <th>Валовая прибыль</th>
+                <th>ВП Моторка</th>
+                <th>ВП Прочее</th>
+                <th>Продажи</th>
+                <th>Лиды</th>
+                <th>CPL</th>
+                <th>ROI</th>
+              </tr>
+            </thead>
+            <tbody id="topCampaignTableBody">
+              <tr><td class="left">Кампании КВ1</td><td class="left">PR_PMax_Kv1_dvsikpp_agregaty</td><td class="right">402</td><td class="right">252</td><td class="right">7</td><td class="right">245</td><td class="right">2</td><td class="right">10</td><td class="right">40.20</td><td class="right">0.63x</td></tr>
+<tr><td class="left">Кампании ХРК+ДНП</td><td class="left">PR_PMax_Kh1_dvsikpp_agregaty</td><td class="right">264</td><td class="right">365</td><td class="right">14</td><td class="right">351</td><td class="right">2</td><td class="right">5</td><td class="right">52.80</td><td class="right">1.38x</td></tr>
+<tr><td class="left">Кампании ЛВВ</td><td class="left">PR_PMax_Lv_dvsikpp_agregaty</td><td class="right">261</td><td class="right">72</td><td class="right">72</td><td class="right">0</td><td class="right">1</td><td class="right">2</td><td class="right">130.50</td><td class="right">0.28x</td></tr>
+<tr><td class="left">Кампании КВ1</td><td class="left">PR_PMax_Kv1_dvsikpp_komplektuyushie</td><td class="right">179</td><td class="right">238</td><td class="right">14</td><td class="right">224</td><td class="right">6</td><td class="right">15</td><td class="right">11.93</td><td class="right">1.33x</td></tr>
+<tr><td class="left">Кампании ХРК+ДНП</td><td class="left">PR_PMax_Kh1_dvsikpp_komplektuyushie</td><td class="right">139</td><td class="right">510</td><td class="right">49</td><td class="right">461</td><td class="right">19</td><td class="right">23</td><td class="right">6.04</td><td class="right">3.67x</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="foot">Подсказка: наведите на точки на карте и элементы диаграмм для детальных значений.</div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const payload = {"generated_at": "2026-03-10 11:24", "latest_month": "Февраль", "months_loaded": 7, "month_options": ["Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь", "Январь", "Февраль"], "month_state": {"Август": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [617.0, 465.0, 394.0], "gross_profit_total": [2324.0, 3521.0, 790.0], "sales_total": [13.0, 28.0, 11.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [25.0, 53.85, 21.15]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 617.0, "gross_profit_total": 2324.0, "gross_profit_motor": 1675.0, "gross_profit_other": 649.0, "motor_share": 0.7207401032702238, "sales_total": 13.0, "primary_leads": 49.0, "roi_total": 3.766612641815235, "sales_share": 0.25}, {"group": "Кампании ХРК+ДНП", "ad_spend": 465.0, "gross_profit_total": 3521.0, "gross_profit_motor": 592.0, "gross_profit_other": 2929.0, "motor_share": 0.16813405282590174, "sales_total": 28.0, "primary_leads": 47.0, "roi_total": 7.572043010752688, "sales_share": 0.5384615384615384}, {"group": "Кампании ЛВВ", "ad_spend": 394.0, "gross_profit_total": 790.0, "gross_profit_motor": 715.0, "gross_profit_other": 75.0, "motor_share": 0.9050632911392406, "sales_total": 11.0, "primary_leads": 16.0, "roi_total": 2.00507614213198, "sales_share": 0.21153846153846154}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 617.0, "gross_profit_total": 2324.0, "gross_profit_motor": 1675.0, "gross_profit_other": 649.0, "sales_total": 13.0, "primary_leads": 49.0, "roi_total": 3.766612641815235}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 465.0, "gross_profit_total": 3521.0, "gross_profit_motor": 592.0, "gross_profit_other": 2929.0, "sales_total": 28.0, "primary_leads": 47.0, "roi_total": 7.572043010752688}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 394.0, "gross_profit_total": 790.0, "gross_profit_motor": 715.0, "gross_profit_other": 75.0, "sales_total": 11.0, "primary_leads": 16.0, "roi_total": 2.00507614213198}], "map_max_spend": 617.0}, "Сентябрь": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [634.0, 443.0, 402.0], "gross_profit_total": [4476.0, 6385.0, 295.0], "sales_total": [22.0, 50.0, 6.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [28.21, 64.1, 7.69]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 634.0, "gross_profit_total": 4476.0, "gross_profit_motor": 2017.0, "gross_profit_other": 2459.0, "motor_share": 0.4506255585344057, "sales_total": 22.0, "primary_leads": 40.0, "roi_total": 7.05993690851735, "sales_share": 0.28205128205128205}, {"group": "Кампании ХРК+ДНП", "ad_spend": 443.0, "gross_profit_total": 6385.0, "gross_profit_motor": 1370.0, "gross_profit_other": 5015.0, "motor_share": 0.21456538762725136, "sales_total": 50.0, "primary_leads": 205.0, "roi_total": 14.413092550790068, "sales_share": 0.6410256410256411}, {"group": "Кампании ЛВВ", "ad_spend": 402.0, "gross_profit_total": 295.0, "gross_profit_motor": 48.0, "gross_profit_other": 247.0, "motor_share": 0.16271186440677965, "sales_total": 6.0, "primary_leads": 15.0, "roi_total": 0.7338308457711443, "sales_share": 0.07692307692307693}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 634.0, "gross_profit_total": 4476.0, "gross_profit_motor": 2017.0, "gross_profit_other": 2459.0, "sales_total": 22.0, "primary_leads": 40.0, "roi_total": 7.05993690851735}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 443.0, "gross_profit_total": 6385.0, "gross_profit_motor": 1370.0, "gross_profit_other": 5015.0, "sales_total": 50.0, "primary_leads": 205.0, "roi_total": 14.413092550790068}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 402.0, "gross_profit_total": 295.0, "gross_profit_motor": 48.0, "gross_profit_other": 247.0, "sales_total": 6.0, "primary_leads": 15.0, "roi_total": 0.7338308457711443}], "map_max_spend": 634.0}, "Октябрь": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [612.0, 475.0, 398.0], "gross_profit_total": [721.0, 7136.0, 782.0], "sales_total": [26.0, 44.0, 7.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [33.77, 57.14, 9.09]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 612.0, "gross_profit_total": 721.0, "gross_profit_motor": 182.0, "gross_profit_other": 539.0, "motor_share": 0.2524271844660194, "sales_total": 26.0, "primary_leads": 37.0, "roi_total": 1.1781045751633987, "sales_share": 0.33766233766233766}, {"group": "Кампании ХРК+ДНП", "ad_spend": 475.0, "gross_profit_total": 7136.0, "gross_profit_motor": 6484.0, "gross_profit_other": 652.0, "motor_share": 0.9086322869955157, "sales_total": 44.0, "primary_leads": 185.0, "roi_total": 15.023157894736842, "sales_share": 0.5714285714285714}, {"group": "Кампании ЛВВ", "ad_spend": 398.0, "gross_profit_total": 782.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "motor_share": 0.0, "sales_total": 7.0, "primary_leads": 18.0, "roi_total": 1.964824120603015, "sales_share": 0.09090909090909091}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 612.0, "gross_profit_total": 721.0, "gross_profit_motor": 182.0, "gross_profit_other": 539.0, "sales_total": 26.0, "primary_leads": 37.0, "roi_total": 1.1781045751633987}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 475.0, "gross_profit_total": 7136.0, "gross_profit_motor": 6484.0, "gross_profit_other": 652.0, "sales_total": 44.0, "primary_leads": 185.0, "roi_total": 15.023157894736842}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 398.0, "gross_profit_total": 782.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 7.0, "primary_leads": 18.0, "roi_total": 1.964824120603015}], "map_max_spend": 612.0}, "Ноябрь": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [605.0, 464.0, 392.0], "gross_profit_total": [2615.0, 5146.0, 412.0], "sales_total": [15.0, 47.0, 8.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [21.43, 67.14, 11.43]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 605.0, "gross_profit_total": 2615.0, "gross_profit_motor": 1299.0, "gross_profit_other": 1316.0, "motor_share": 0.49674952198852773, "sales_total": 15.0, "primary_leads": 32.0, "roi_total": 4.322314049586777, "sales_share": 0.21428571428571427}, {"group": "Кампании ХРК+ДНП", "ad_spend": 464.0, "gross_profit_total": 5146.0, "gross_profit_motor": 4251.0, "gross_profit_other": 895.0, "motor_share": 0.8260785075787019, "sales_total": 47.0, "primary_leads": 151.0, "roi_total": 11.09051724137931, "sales_share": 0.6714285714285714}, {"group": "Кампании ЛВВ", "ad_spend": 392.0, "gross_profit_total": 412.0, "gross_profit_motor": 21.0, "gross_profit_other": 391.0, "motor_share": 0.050970873786407765, "sales_total": 8.0, "primary_leads": 14.0, "roi_total": 1.0510204081632653, "sales_share": 0.11428571428571428}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 605.0, "gross_profit_total": 2615.0, "gross_profit_motor": 1299.0, "gross_profit_other": 1316.0, "sales_total": 15.0, "primary_leads": 32.0, "roi_total": 4.322314049586777}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 464.0, "gross_profit_total": 5146.0, "gross_profit_motor": 4251.0, "gross_profit_other": 895.0, "sales_total": 47.0, "primary_leads": 151.0, "roi_total": 11.09051724137931}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 392.0, "gross_profit_total": 412.0, "gross_profit_motor": 21.0, "gross_profit_other": 391.0, "sales_total": 8.0, "primary_leads": 14.0, "roi_total": 1.0510204081632653}], "map_max_spend": 605.0}, "Декабрь": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [603.0, 466.0, 284.0], "gross_profit_total": [604.0, 2876.0, 1420.0], "sales_total": [11.0, 44.0, 6.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [18.03, 72.13, 9.84]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 603.0, "gross_profit_total": 604.0, "gross_profit_motor": 69.0, "gross_profit_other": 535.0, "motor_share": 0.11423841059602649, "sales_total": 11.0, "primary_leads": 27.0, "roi_total": 1.0016583747927033, "sales_share": 0.18032786885245902}, {"group": "Кампании ХРК+ДНП", "ad_spend": 466.0, "gross_profit_total": 2876.0, "gross_profit_motor": 1565.0, "gross_profit_other": 1311.0, "motor_share": 0.5441585535465925, "sales_total": 44.0, "primary_leads": 143.0, "roi_total": 6.171673819742489, "sales_share": 0.7213114754098361}, {"group": "Кампании ЛВВ", "ad_spend": 284.0, "gross_profit_total": 1420.0, "gross_profit_motor": 552.0, "gross_profit_other": 868.0, "motor_share": 0.38873239436619716, "sales_total": 6.0, "primary_leads": 11.0, "roi_total": 5.0, "sales_share": 0.09836065573770492}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 603.0, "gross_profit_total": 604.0, "gross_profit_motor": 69.0, "gross_profit_other": 535.0, "sales_total": 11.0, "primary_leads": 27.0, "roi_total": 1.0016583747927033}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 466.0, "gross_profit_total": 2876.0, "gross_profit_motor": 1565.0, "gross_profit_other": 1311.0, "sales_total": 44.0, "primary_leads": 143.0, "roi_total": 6.171673819742489}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 284.0, "gross_profit_total": 1420.0, "gross_profit_motor": 552.0, "gross_profit_other": 868.0, "sales_total": 6.0, "primary_leads": 11.0, "roi_total": 5.0}], "map_max_spend": 603.0}, "Январь": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [591.0, 453.0, 244.0], "gross_profit_total": [4048.0, 5433.0, 0.0], "sales_total": [15.0, 37.0, 0.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [28.85, 71.15, 0.0]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 591.0, "gross_profit_total": 4048.0, "gross_profit_motor": 3734.0, "gross_profit_other": 314.0, "motor_share": 0.9224308300395256, "sales_total": 15.0, "primary_leads": 31.0, "roi_total": 6.849407783417936, "sales_share": 0.28846153846153844}, {"group": "Кампании ХРК+ДНП", "ad_spend": 453.0, "gross_profit_total": 5433.0, "gross_profit_motor": 5457.0, "gross_profit_other": -24.0, "motor_share": 1.004417448923247, "sales_total": 37.0, "primary_leads": 145.0, "roi_total": 11.993377483443709, "sales_share": 0.7115384615384616}, {"group": "Кампании ЛВВ", "ad_spend": 244.0, "gross_profit_total": 0.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "motor_share": 0.0, "sales_total": 0.0, "primary_leads": 5.0, "roi_total": 0.0, "sales_share": 0.0}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 591.0, "gross_profit_total": 4048.0, "gross_profit_motor": 3734.0, "gross_profit_other": 314.0, "sales_total": 15.0, "primary_leads": 31.0, "roi_total": 6.849407783417936}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 453.0, "gross_profit_total": 5433.0, "gross_profit_motor": 5457.0, "gross_profit_other": -24.0, "sales_total": 37.0, "primary_leads": 145.0, "roi_total": 11.993377483443709}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 244.0, "gross_profit_total": 0.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 0.0, "primary_leads": 5.0, "roi_total": 0.0}], "map_max_spend": 591.0}, "Февраль": {"group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [581.0, 403.0, 261.0], "gross_profit_total": [1728.0, 10723.0, 72.0], "sales_total": [11.0, 51.0, 1.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [17.46, 80.95, 1.59]}, "group_table": [{"group": "Кампании КВ1", "ad_spend": 581.0, "gross_profit_total": 1728.0, "gross_profit_motor": 1250.0, "gross_profit_other": 478.0, "motor_share": 0.7233796296296297, "sales_total": 11.0, "primary_leads": 25.0, "roi_total": 2.974182444061962, "sales_share": 0.1746031746031746}, {"group": "Кампании ХРК+ДНП", "ad_spend": 403.0, "gross_profit_total": 10723.0, "gross_profit_motor": 9486.0, "gross_profit_other": 1237.0, "motor_share": 0.884640492399515, "sales_total": 51.0, "primary_leads": 179.0, "roi_total": 26.607940446650122, "sales_share": 0.8095238095238095}, {"group": "Кампании ЛВВ", "ad_spend": 261.0, "gross_profit_total": 72.0, "gross_profit_motor": 72.0, "gross_profit_other": 0.0, "motor_share": 1.0, "sales_total": 1.0, "primary_leads": 2.0, "roi_total": 0.27586206896551724, "sales_share": 0.015873015873015872}], "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 581.0, "gross_profit_total": 1728.0, "gross_profit_motor": 1250.0, "gross_profit_other": 478.0, "sales_total": 11.0, "primary_leads": 25.0, "roi_total": 2.974182444061962}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 403.0, "gross_profit_total": 10723.0, "gross_profit_motor": 9486.0, "gross_profit_other": 1237.0, "sales_total": 51.0, "primary_leads": 179.0, "roi_total": 26.607940446650122}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 261.0, "gross_profit_total": 72.0, "gross_profit_motor": 72.0, "gross_profit_other": 0.0, "sales_total": 1.0, "primary_leads": 2.0, "roi_total": 0.27586206896551724}], "map_max_spend": 581.0}}, "month_campaign_state": {"Август": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Kh1_dvsikpp_komplektuyushie", "PR_PMax_Lv_dvsikpp_komplektuyushie"], "ad_spend": [437.0, 285.0, 250.0, 180.0, 180.0, 144.0], "gross_profit_total": [1766.0, 1201.0, 0.0, 218.0, 966.0, 377.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 437.0, "gross_profit_total": 1766.0, "gross_profit_motor": 1602.0, "gross_profit_other": 164.0, "sales_total": 4.0, "primary_leads": 5.0, "cpl": 87.4, "roi_total": 4.0411899313501145}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 285.0, "gross_profit_total": 1201.0, "gross_profit_motor": 504.0, "gross_profit_other": 697.0, "sales_total": 12.0, "primary_leads": 17.0, "cpl": 16.764705882352942, "roi_total": 4.2140350877192985}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 250.0, "gross_profit_total": 0.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 0.0, "primary_leads": 3.0, "cpl": 83.33333333333333, "roi_total": 0.0}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 180.0, "gross_profit_total": 218.0, "gross_profit_motor": 73.0, "gross_profit_other": 145.0, "sales_total": 9.0, "primary_leads": 26.0, "cpl": 6.923076923076923, "roi_total": 1.211111111111111}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 180.0, "gross_profit_total": 966.0, "gross_profit_motor": 88.0, "gross_profit_other": 878.0, "sales_total": 14.0, "primary_leads": 16.0, "cpl": 11.25, "roi_total": 5.366666666666666}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_komplektuyushie", "ad_spend": 144.0, "gross_profit_total": 377.0, "gross_profit_motor": 377.0, "gross_profit_other": 0.0, "sales_total": 11.0, "primary_leads": 5.0, "cpl": 28.8, "roi_total": 2.6180555555555554}]}, "Сентябрь": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Kh1_dvsikpp_komplektuyushie", "PR_PMax_Lv_dvsikpp_komplektuyushie"], "ad_spend": [451.0, 270.0, 256.0, 183.0, 173.0, 146.0], "gross_profit_total": [1201.0, 1483.0, 74.0, 1037.0, 749.0, 221.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 451.0, "gross_profit_total": 1201.0, "gross_profit_motor": 970.0, "gross_profit_other": 231.0, "sales_total": 8.0, "primary_leads": 13.0, "cpl": 34.69230769230769, "roi_total": 2.662971175166297}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 270.0, "gross_profit_total": 1483.0, "gross_profit_motor": 1155.0, "gross_profit_other": 328.0, "sales_total": 11.0, "primary_leads": 14.0, "cpl": 19.285714285714285, "roi_total": 5.492592592592593}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 256.0, "gross_profit_total": 74.0, "gross_profit_motor": 0.0, "gross_profit_other": 74.0, "sales_total": 1.0, "primary_leads": 2.0, "cpl": 128.0, "roi_total": 0.2890625}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 183.0, "gross_profit_total": 1037.0, "gross_profit_motor": 596.0, "gross_profit_other": 441.0, "sales_total": 14.0, "primary_leads": 20.0, "cpl": 9.15, "roi_total": 5.666666666666667}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 173.0, "gross_profit_total": 749.0, "gross_profit_motor": 215.0, "gross_profit_other": 534.0, "sales_total": 15.0, "primary_leads": 15.0, "cpl": 11.533333333333333, "roi_total": 4.329479768786127}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_komplektuyushie", "ad_spend": 146.0, "gross_profit_total": 221.0, "gross_profit_motor": 48.0, "gross_profit_other": 173.0, "sales_total": 5.0, "primary_leads": 11.0, "cpl": 13.272727272727273, "roi_total": 1.5136986301369864}]}, "Октябрь": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_komplektuyushie", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Lv_dvsikpp_komplektuyushie"], "ad_spend": [432.0, 290.0, 254.0, 185.0, 180.0, 144.0], "gross_profit_total": [331.0, 991.0, 69.0, 276.0, 370.0, 713.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 432.0, "gross_profit_total": 331.0, "gross_profit_motor": 38.0, "gross_profit_other": 293.0, "sales_total": 9.0, "primary_leads": 12.0, "cpl": 36.0, "roi_total": 0.7662037037037037}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 290.0, "gross_profit_total": 991.0, "gross_profit_motor": 753.0, "gross_profit_other": 238.0, "sales_total": 7.0, "primary_leads": 16.0, "cpl": 18.125, "roi_total": 3.4172413793103447}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 254.0, "gross_profit_total": 69.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 2.0, "primary_leads": 6.0, "cpl": 42.333333333333336, "roi_total": 0.27165354330708663}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 185.0, "gross_profit_total": 276.0, "gross_profit_motor": 50.0, "gross_profit_other": 226.0, "sales_total": 13.0, "primary_leads": 21.0, "cpl": 8.80952380952381, "roi_total": 1.491891891891892}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 180.0, "gross_profit_total": 370.0, "gross_profit_motor": 124.0, "gross_profit_other": 246.0, "sales_total": 16.0, "primary_leads": 17.0, "cpl": 10.588235294117647, "roi_total": 2.0555555555555554}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_komplektuyushie", "ad_spend": 144.0, "gross_profit_total": 713.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 5.0, "primary_leads": 10.0, "cpl": 14.4, "roi_total": 4.951388888888889}]}, "Ноябрь": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_komplektuyushie", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Lv_dvsikpp_komplektuyushie"], "ad_spend": [427.0, 285.0, 250.0, 179.0, 178.0, 142.0], "gross_profit_total": [1150.0, 703.0, 6.0, 416.0, 172.0, 406.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 427.0, "gross_profit_total": 1150.0, "gross_profit_motor": 0.0, "gross_profit_other": 1150.0, "sales_total": 4.0, "primary_leads": 11.0, "cpl": 38.81818181818182, "roi_total": 2.693208430913349}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 285.0, "gross_profit_total": 703.0, "gross_profit_motor": 318.0, "gross_profit_other": 385.0, "sales_total": 7.0, "primary_leads": 8.0, "cpl": 35.625, "roi_total": 2.466666666666667}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 250.0, "gross_profit_total": 6.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 2.0, "primary_leads": 3.0, "cpl": 83.33333333333333, "roi_total": 0.024}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 179.0, "gross_profit_total": 416.0, "gross_profit_motor": 98.0, "gross_profit_other": 318.0, "sales_total": 16.0, "primary_leads": 21.0, "cpl": 8.523809523809524, "roi_total": 2.3240223463687153}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 178.0, "gross_profit_total": 172.0, "gross_profit_motor": 25.0, "gross_profit_other": 147.0, "sales_total": 9.0, "primary_leads": 12.0, "cpl": 14.833333333333334, "roi_total": 0.9662921348314607}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_komplektuyushie", "ad_spend": 142.0, "gross_profit_total": 406.0, "gross_profit_motor": 21.0, "gross_profit_other": 385.0, "sales_total": 6.0, "primary_leads": 11.0, "cpl": 12.909090909090908, "roi_total": 2.859154929577465}]}, "Декабрь": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_komplektuyushie", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Lv_dvsikpp_komplektuyushie"], "ad_spend": [425.0, 285.0, 249.0, 181.0, 178.0, 35.0], "gross_profit_total": [83.0, 588.0, 684.0, 736.0, 371.0, 203.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 425.0, "gross_profit_total": 83.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 2.0, "primary_leads": 7.0, "cpl": 60.714285714285715, "roi_total": 0.1952941176470588}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 285.0, "gross_profit_total": 588.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 8.0, "primary_leads": 9.0, "cpl": 31.666666666666668, "roi_total": 2.0631578947368423}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 249.0, "gross_profit_total": 684.0, "gross_profit_motor": 552.0, "gross_profit_other": 132.0, "sales_total": 3.0, "primary_leads": 5.0, "cpl": 49.8, "roi_total": 2.746987951807229}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 181.0, "gross_profit_total": 736.0, "gross_profit_motor": 275.0, "gross_profit_other": 461.0, "sales_total": 11.0, "primary_leads": 15.0, "cpl": 12.066666666666666, "roi_total": 4.066298342541437}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 178.0, "gross_profit_total": 371.0, "gross_profit_motor": 69.0, "gross_profit_other": 302.0, "sales_total": 7.0, "primary_leads": 15.0, "cpl": 11.866666666666667, "roi_total": 2.0842696629213484}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_komplektuyushie", "ad_spend": 35.0, "gross_profit_total": 203.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 2.0, "primary_leads": 3.0, "cpl": 11.666666666666666, "roi_total": 5.8}]}, "Январь": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_komplektuyushie", "PR_PMax_Kv1_dvsikpp_komplektuyushie"], "ad_spend": [416.0, 276.0, 244.0, 177.0, 175.0], "gross_profit_total": [3853.0, 35.0, 0.0, 181.0, 195.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 416.0, "gross_profit_total": 3853.0, "gross_profit_motor": 3663.0, "gross_profit_other": 190.0, "sales_total": 6.0, "primary_leads": 12.0, "cpl": 34.666666666666664, "roi_total": 9.26201923076923}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 276.0, "gross_profit_total": 35.0, "gross_profit_motor": 26.0, "gross_profit_other": 9.0, "sales_total": 3.0, "primary_leads": 8.0, "cpl": 34.5, "roi_total": 0.12681159420289856}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 244.0, "gross_profit_total": 0.0, "gross_profit_motor": 0.0, "gross_profit_other": 0.0, "sales_total": 0.0, "primary_leads": 4.0, "cpl": 61.0, "roi_total": 0.0}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 177.0, "gross_profit_total": 181.0, "gross_profit_motor": 253.0, "gross_profit_other": -72.0, "sales_total": 13.0, "primary_leads": 21.0, "cpl": 8.428571428571429, "roi_total": 1.0225988700564972}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 175.0, "gross_profit_total": 195.0, "gross_profit_motor": 179.0, "gross_profit_other": 16.0, "sales_total": 9.0, "primary_leads": 17.0, "cpl": 10.294117647058824, "roi_total": 1.1142857142857143}]}, "Февраль": {"top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Kh1_dvsikpp_komplektuyushie"], "ad_spend": [402.0, 264.0, 261.0, 179.0, 139.0], "gross_profit_total": [252.0, 365.0, 72.0, 238.0, 510.0]}, "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 402.0, "gross_profit_total": 252.0, "gross_profit_motor": 7.0, "gross_profit_other": 245.0, "sales_total": 2.0, "primary_leads": 10.0, "cpl": 40.2, "roi_total": 0.6268656716417911}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 264.0, "gross_profit_total": 365.0, "gross_profit_motor": 14.0, "gross_profit_other": 351.0, "sales_total": 2.0, "primary_leads": 5.0, "cpl": 52.8, "roi_total": 1.3825757575757576}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 261.0, "gross_profit_total": 72.0, "gross_profit_motor": 72.0, "gross_profit_other": 0.0, "sales_total": 1.0, "primary_leads": 2.0, "cpl": 130.5, "roi_total": 0.27586206896551724}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 179.0, "gross_profit_total": 238.0, "gross_profit_motor": 14.0, "gross_profit_other": 224.0, "sales_total": 6.0, "primary_leads": 15.0, "cpl": 11.933333333333334, "roi_total": 1.329608938547486}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 139.0, "gross_profit_total": 510.0, "gross_profit_motor": 49.0, "gross_profit_other": 461.0, "sales_total": 19.0, "primary_leads": 23.0, "cpl": 6.043478260869565, "roi_total": 3.6690647482014387}]}}, "kpi": {"ad_spend": 1245.0, "gross_profit_total": 12523.0, "gross_profit_motor": 10808.0, "gross_profit_other": 1715.0, "motor_share": 0.8630519843487983, "sales_total": 63.0, "primary_leads": 206.0, "roi_total": 10.05863453815261, "cpc": 0.08225422832980972, "cpl": 6.043689320388349, "lead_to_sale": 0.3058252427184466}, "trend": {"ad_spend_delta": -0.033385093167701864, "gross_profit_delta": 0.32085223077734415, "sales_delta": 0.21153846153846154}, "monthly_chart": {"labels": ["Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь", "Январь", "Февраль"], "ad_spend": [1476.0, 1479.0, 1485.0, 1461.0, 1353.0, 1288.0, 1245.0], "gross_profit_total": [6635.0, 11156.0, 8639.0, 8173.0, 4900.0, 9481.0, 12523.0], "sales_total": [52.0, 78.0, 77.0, 70.0, 61.0, 52.0, 63.0], "primary_leads": [112.0, 260.0, 240.0, 197.0, 181.0, 181.0, 206.0]}, "group_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "ad_spend": [581.0, 403.0, 261.0], "gross_profit_total": [1728.0, 10723.0, 72.0], "sales_total": [11.0, 51.0, 1.0]}, "top_campaigns_chart": {"labels": ["PR_PMax_Kv1_dvsikpp_agregaty", "PR_PMax_Kh1_dvsikpp_agregaty", "PR_PMax_Lv_dvsikpp_agregaty", "PR_PMax_Kv1_dvsikpp_komplektuyushie", "PR_PMax_Kh1_dvsikpp_komplektuyushie"], "ad_spend": [402.0, 264.0, 261.0, 179.0, 139.0], "gross_profit_total": [252.0, 365.0, 72.0, 238.0, 510.0]}, "sales_share_chart": {"labels": ["Кампании КВ1", "Кампании ХРК+ДНП", "Кампании ЛВВ"], "sales_share_pct": [17.46, 80.95, 1.59]}, "map_points": [{"group": "Кампании КВ1", "city": "Киев", "lat": 50.4501, "lon": 30.5234, "ad_spend": 581.0, "gross_profit_total": 1728.0, "gross_profit_motor": 1250.0, "gross_profit_other": 478.0, "sales_total": 11.0, "primary_leads": 25.0, "roi_total": 2.974182444061962}, {"group": "Кампании ХРК+ДНП", "city": "Харьков + Днепр", "lat": 49.2, "lon": 35.6, "ad_spend": 403.0, "gross_profit_total": 10723.0, "gross_profit_motor": 9486.0, "gross_profit_other": 1237.0, "sales_total": 51.0, "primary_leads": 179.0, "roi_total": 26.607940446650122}, {"group": "Кампании ЛВВ", "city": "Львов", "lat": 49.8397, "lon": 24.0297, "ad_spend": 261.0, "gross_profit_total": 72.0, "gross_profit_motor": 72.0, "gross_profit_other": 0.0, "sales_total": 1.0, "primary_leads": 2.0, "roi_total": 0.27586206896551724}], "map_max_spend": 581.0, "monthly_table": [{"month": "Август", "ad_spend": 1476.0, "gross_profit_total": 6635.0, "gross_profit_motor": 2982.0, "gross_profit_other": 3653.0, "motor_share": 0.4494348153730219, "sales_total": 52.0, "primary_leads": 112.0, "roi_total": 4.495257452574526, "cpc": 0.09154623829312163, "cpl": 13.178571428571429, "lead_to_sale": 0.4642857142857143}, {"month": "Сентябрь", "ad_spend": 1479.0, "gross_profit_total": 11156.0, "gross_profit_motor": 3435.0, "gross_profit_other": 7721.0, "motor_share": 0.30790605951954103, "sales_total": 78.0, "primary_leads": 260.0, "roi_total": 7.5429344151453686, "cpc": 0.09071949947862357, "cpl": 5.688461538461539, "lead_to_sale": 0.3}, {"month": "Октябрь", "ad_spend": 1485.0, "gross_profit_total": 8639.0, "gross_profit_motor": 6666.0, "gross_profit_other": 1973.0, "motor_share": 0.7716170853107999, "sales_total": 77.0, "primary_leads": 240.0, "roi_total": 5.817508417508417, "cpc": 0.08630710217366035, "cpl": 6.1875, "lead_to_sale": 0.32083333333333336}, {"month": "Ноябрь", "ad_spend": 1461.0, "gross_profit_total": 8173.0, "gross_profit_motor": 5571.0, "gross_profit_other": 2602.0, "motor_share": 0.6816346506790653, "sales_total": 70.0, "primary_leads": 197.0, "roi_total": 5.594113620807666, "cpc": 0.08248644986449864, "cpl": 7.416243654822335, "lead_to_sale": 0.3553299492385787}, {"month": "Декабрь", "ad_spend": 1353.0, "gross_profit_total": 4900.0, "gross_profit_motor": 2186.0, "gross_profit_other": 2714.0, "motor_share": 0.44612244897959186, "sales_total": 61.0, "primary_leads": 181.0, "roi_total": 3.621581670362158, "cpc": 0.07835756066485203, "cpl": 7.475138121546961, "lead_to_sale": 0.3370165745856354}, {"month": "Январь", "ad_spend": 1288.0, "gross_profit_total": 9481.0, "gross_profit_motor": 9191.0, "gross_profit_other": 290.0, "motor_share": 0.9694125092289843, "sales_total": 52.0, "primary_leads": 181.0, "roi_total": 7.361024844720497, "cpc": 0.07976713940670094, "cpl": 7.116022099447513, "lead_to_sale": 0.287292817679558}, {"month": "Февраль", "ad_spend": 1245.0, "gross_profit_total": 12523.0, "gross_profit_motor": 10808.0, "gross_profit_other": 1715.0, "motor_share": 0.8630519843487983, "sales_total": 63.0, "primary_leads": 206.0, "roi_total": 10.05863453815261, "cpc": 0.08225422832980972, "cpl": 6.043689320388349, "lead_to_sale": 0.3058252427184466}], "group_table": [{"group": "Кампании КВ1", "ad_spend": 581.0, "gross_profit_total": 1728.0, "gross_profit_motor": 1250.0, "gross_profit_other": 478.0, "motor_share": 0.7233796296296297, "sales_total": 11.0, "primary_leads": 25.0, "roi_total": 2.974182444061962, "sales_share": 0.1746031746031746}, {"group": "Кампании ХРК+ДНП", "ad_spend": 403.0, "gross_profit_total": 10723.0, "gross_profit_motor": 9486.0, "gross_profit_other": 1237.0, "motor_share": 0.884640492399515, "sales_total": 51.0, "primary_leads": 179.0, "roi_total": 26.607940446650122, "sales_share": 0.8095238095238095}, {"group": "Кампании ЛВВ", "ad_spend": 261.0, "gross_profit_total": 72.0, "gross_profit_motor": 72.0, "gross_profit_other": 0.0, "motor_share": 1.0, "sales_total": 1.0, "primary_leads": 2.0, "roi_total": 0.27586206896551724, "sales_share": 0.015873015873015872}], "top_campaign_table": [{"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_agregaty", "ad_spend": 402.0, "gross_profit_total": 252.0, "gross_profit_motor": 7.0, "gross_profit_other": 245.0, "sales_total": 2.0, "primary_leads": 10.0, "cpl": 40.2, "roi_total": 0.6268656716417911}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_agregaty", "ad_spend": 264.0, "gross_profit_total": 365.0, "gross_profit_motor": 14.0, "gross_profit_other": 351.0, "sales_total": 2.0, "primary_leads": 5.0, "cpl": 52.8, "roi_total": 1.3825757575757576}, {"group": "Кампании ЛВВ", "campaign": "PR_PMax_Lv_dvsikpp_agregaty", "ad_spend": 261.0, "gross_profit_total": 72.0, "gross_profit_motor": 72.0, "gross_profit_other": 0.0, "sales_total": 1.0, "primary_leads": 2.0, "cpl": 130.5, "roi_total": 0.27586206896551724}, {"group": "Кампании КВ1", "campaign": "PR_PMax_Kv1_dvsikpp_komplektuyushie", "ad_spend": 179.0, "gross_profit_total": 238.0, "gross_profit_motor": 14.0, "gross_profit_other": 224.0, "sales_total": 6.0, "primary_leads": 15.0, "cpl": 11.933333333333334, "roi_total": 1.329608938547486}, {"group": "Кампании ХРК+ДНП", "campaign": "PR_PMax_Kh1_dvsikpp_komplektuyushie", "ad_spend": 139.0, "gross_profit_total": 510.0, "gross_profit_motor": 49.0, "gross_profit_other": 461.0, "sales_total": 19.0, "primary_leads": 23.0, "cpl": 6.043478260869565, "roi_total": 3.6690647482014387}]};
+
+    const chartPalette = {
+      blue: "#0b84f3",
+      orange: "#ff7a59",
+      green: "#0f9d6a",
+      navy: "#1f4e78",
+      gray: "#9aa9bd"
+    };
+
+    const gridColor = "rgba(21, 49, 89, 0.12)";
+    const formatInt = (value) => Number(value || 0).toLocaleString("ru-RU");
+    const format1 = (value) => Number(value || 0).toLocaleString("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const format2 = (value) => Number(value || 0).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const monthState = payload.month_state || {};
+    const monthCampaignState = payload.month_campaign_state || {};
+    const monthSelect = document.getElementById("monthSelect");
+    const groupTableBody = document.getElementById("groupTableBody");
+    const topCampaignTableBody = document.getElementById("topCampaignTableBody");
+    const groupChartTitle = document.getElementById("groupChartTitle");
+    const salesShareTitle = document.getElementById("salesShareTitle");
+    const groupTableTitle = document.getElementById("groupTableTitle");
+    const mapTitle = document.getElementById("mapTitle");
+    const topCampaignsTitle = document.getElementById("topCampaignsTitle");
+    const topCampaignsSectionTitle = document.getElementById("topCampaignsSectionTitle");
+    const badgeSpendDelta = document.getElementById("badgeSpendDelta");
+    const badgeProfitDelta = document.getElementById("badgeProfitDelta");
+    const badgeSalesDelta = document.getElementById("badgeSalesDelta");
+    const kpiAdSpendValue = document.getElementById("kpiAdSpendValue");
+    const kpiAdSpendNote = document.getElementById("kpiAdSpendNote");
+    const kpiProfitValue = document.getElementById("kpiProfitValue");
+    const kpiProfitNote = document.getElementById("kpiProfitNote");
+    const kpiMotorValue = document.getElementById("kpiMotorValue");
+    const kpiMotorNote = document.getElementById("kpiMotorNote");
+    const kpiOtherValue = document.getElementById("kpiOtherValue");
+    const kpiOtherNote = document.getElementById("kpiOtherNote");
+    const kpiRoiValue = document.getElementById("kpiRoiValue");
+    const kpiSalesLeadsValue = document.getElementById("kpiSalesLeadsValue");
+    const kpiSalesLeadsNote = document.getElementById("kpiSalesLeadsNote");
+
+    const monthlyRows = Array.isArray(payload.monthly_table) ? payload.monthly_table : [];
+    const monthToMetrics = Object.fromEntries(monthlyRows.map((row) => [row.month, row]));
+    const monthToIndex = Object.fromEntries(monthlyRows.map((row, index) => [row.month, index]));
+
+    const getMonthState = (month) => {
+      if (monthState[month]) return monthState[month];
+      if (monthState[payload.latest_month]) return monthState[payload.latest_month];
+      return {
+        group_chart: { labels: [], ad_spend: [], gross_profit_total: [], sales_total: [] },
+        sales_share_chart: { labels: [], sales_share_pct: [] },
+        group_table: [],
+        map_points: [],
+        map_max_spend: 1
+      };
+    };
+
+    const getMonthCampaignState = (month) => {
+      if (monthCampaignState[month]) return monthCampaignState[month];
+      if (monthCampaignState[payload.latest_month]) return monthCampaignState[payload.latest_month];
+      return {
+        top_campaigns_chart: { labels: [], ad_spend: [], gross_profit_total: [] },
+        top_campaign_table: []
+      };
+    };
+
+    const escHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
+    const pctText = (ratio) => `${format1((ratio || 0) * 100)}%`;
+
+    const getMetricsByMonth = (month) => monthToMetrics[month] || monthToMetrics[payload.latest_month] || null;
+
+    const deltaRatio = (current, previous) => {
+      const prev = Number(previous || 0);
+      const curr = Number(current || 0);
+      if (!prev) return 0;
+      return (curr - prev) / prev;
+    };
+
+    const badgeText = (label, ratio) => `${label}: ${format1(ratio * 100)}%`;
+
+    const applyBadge = (element, isGood, text) => {
+      if (!element) return;
+      element.textContent = text;
+      element.classList.remove("good", "warn");
+      element.classList.add(isGood ? "good" : "warn");
+    };
+
+    const renderGroupTable = (rows) => {
+      if (!groupTableBody) return;
+      if (!rows || rows.length === 0) {
+        groupTableBody.innerHTML = '<tr><td colspan="10" class="empty-row">Нет данных</td></tr>';
+        return;
+      }
+      groupTableBody.innerHTML = rows.map((row) => `
+        <tr>
+          <td class="left">${escHtml(row.group)}</td>
+          <td class="right">${formatInt(row.ad_spend)}</td>
+          <td class="right">${formatInt(row.gross_profit_total)}</td>
+          <td class="right">${formatInt(row.gross_profit_motor)}</td>
+          <td class="right">${formatInt(row.gross_profit_other)}</td>
+          <td class="right">${format1((row.motor_share || 0) * 100)}%</td>
+          <td class="right">${formatInt(row.sales_total)}</td>
+          <td class="right">${formatInt(row.primary_leads)}</td>
+          <td class="right">${format2(row.roi_total)}x</td>
+          <td class="right">${format1((row.sales_share || 0) * 100)}%</td>
+        </tr>
+      `).join("");
+    };
+
+    const renderTopCampaignTable = (rows) => {
+      if (!topCampaignTableBody) return;
+      if (!rows || rows.length === 0) {
+        topCampaignTableBody.innerHTML = '<tr><td colspan="10" class="empty-row">Нет данных</td></tr>';
+        return;
+      }
+      topCampaignTableBody.innerHTML = rows.map((row) => `
+        <tr>
+          <td class="left">${escHtml(row.group)}</td>
+          <td class="left">${escHtml(row.campaign)}</td>
+          <td class="right">${formatInt(row.ad_spend)}</td>
+          <td class="right">${formatInt(row.gross_profit_total)}</td>
+          <td class="right">${formatInt(row.gross_profit_motor)}</td>
+          <td class="right">${formatInt(row.gross_profit_other)}</td>
+          <td class="right">${formatInt(row.sales_total)}</td>
+          <td class="right">${formatInt(row.primary_leads)}</td>
+          <td class="right">${format2(row.cpl)}</td>
+          <td class="right">${format2(row.roi_total)}x</td>
+        </tr>
+      `).join("");
+    };
+
+    const initialMonth = (monthSelect && monthSelect.value) ? monthSelect.value : payload.latest_month;
+    const initialMonthState = getMonthState(initialMonth);
+    const initialMonthCampaignState = getMonthCampaignState(initialMonth);
+
+    new Chart(document.getElementById("chartMonthly"), {
+      type: "line",
+      data: {
+        labels: payload.monthly_chart.labels,
+        datasets: [
+          {
+            label: "Расходы GA",
+            data: payload.monthly_chart.ad_spend,
+            borderColor: chartPalette.orange,
+            backgroundColor: "rgba(255,122,89,0.16)",
+            tension: 0.3,
+            fill: true,
+            borderWidth: 2.3,
+            pointRadius: 3
+          },
+          {
+            label: "Валовая прибыль",
+            data: payload.monthly_chart.gross_profit_total,
+            borderColor: chartPalette.blue,
+            backgroundColor: "rgba(11,132,243,0.12)",
+            tension: 0.28,
+            fill: true,
+            borderWidth: 2.3,
+            pointRadius: 3
+          }
+        ]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top", labels: { boxWidth: 12 } },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatInt(ctx.parsed.y)}` } }
+        },
+        scales: {
+          x: { grid: { color: "rgba(0,0,0,0)" } },
+          y: {
+            grid: { color: gridColor },
+            ticks: { callback: (value) => formatInt(value) }
+          }
+        }
+      }
+    });
+
+    const salesShareChart = new Chart(document.getElementById("chartSalesShare"), {
+      type: "doughnut",
+      data: {
+        labels: initialMonthState.sales_share_chart.labels,
+        datasets: [{
+          label: "Доля продаж, %",
+          data: initialMonthState.sales_share_chart.sales_share_pct,
+          backgroundColor: ["#0b84f3", "#ff7a59", "#0f9d6a", "#4f46e5", "#f59e0b"],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        cutout: "58%",
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${format1(ctx.parsed)}%` } }
+        }
+      }
+    });
+
+    const groupChart = new Chart(document.getElementById("chartGroups"), {
+      type: "bar",
+      data: {
+        labels: initialMonthState.group_chart.labels,
+        datasets: [
+          {
+            label: "Расходы",
+            data: initialMonthState.group_chart.ad_spend,
+            backgroundColor: "rgba(255,122,89,0.84)",
+            borderRadius: 6,
+            maxBarThickness: 42
+          },
+          {
+            label: "Валовая прибыль",
+            data: initialMonthState.group_chart.gross_profit_total,
+            backgroundColor: "rgba(11,132,243,0.82)",
+            borderRadius: 6,
+            maxBarThickness: 42
+          }
+        ]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top" },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatInt(ctx.parsed.y)}` } }
+        },
+        scales: {
+          x: { grid: { color: "rgba(0,0,0,0)" } },
+          y: { grid: { color: gridColor }, ticks: { callback: (v) => formatInt(v) } }
+        }
+      }
+    });
+
+    const topCampaignChart = new Chart(document.getElementById("chartTopCampaigns"), {
+      type: "bar",
+      data: {
+        labels: initialMonthCampaignState.top_campaigns_chart.labels,
+        datasets: [{
+          label: "Расходы",
+          data: initialMonthCampaignState.top_campaigns_chart.ad_spend,
+          backgroundColor: "rgba(31,78,120,0.84)",
+          borderRadius: 6,
+          maxBarThickness: 18
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => `Расходы: ${formatInt(ctx.parsed.x)}` } }
+        },
+        scales: {
+          y: {
+            grid: { color: "rgba(0,0,0,0)" },
+            ticks: {
+              callback: function(value) {
+                const label = this.getLabelForValue(value) || "";
+                return label.length > 34 ? `${label.slice(0, 34)}...` : label;
+              }
+            }
+          },
+          x: { grid: { color: gridColor }, ticks: { callback: (v) => formatInt(v) } }
+        }
+      }
+    });
+
+    const ukraineBounds = L.latLngBounds([[44.0, 22.0], [52.8, 40.8]]);
+    const map = L.map("map", {
+      zoomControl: true,
+      scrollWheelZoom: false,
+      maxBounds: ukraineBounds.pad(0.15),
+      maxBoundsViscosity: 1.0
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    map.fitBounds(ukraineBounds, { padding: [12, 12] });
+    const mapLayer = L.layerGroup().addTo(map);
+
+    const renderMapPoints = (state) => {
+      mapLayer.clearLayers();
+      const points = state.map_points || [];
+      if (!points.length) {
+        return;
+      }
+      const maxSpend = state.map_max_spend || 1;
+      points.forEach((point) => {
+        const ratio = Math.max(0, Math.min(1, point.ad_spend / maxSpend));
+        const radius = 10 + ratio * 22;
+        const color = point.roi_total >= 8 ? "#0f9d6a" : (point.roi_total >= 5 ? "#f59e0b" : "#c72d4f");
+        const marker = L.circleMarker([point.lat, point.lon], {
+          radius,
+          color,
+          fillColor: color,
+          fillOpacity: 0.28,
+          weight: 2
+        }).addTo(mapLayer);
+
+        marker.bindPopup(`
+          <div style="font-family: Manrope, sans-serif; min-width: 190px;">
+            <div style="font-weight:800; margin-bottom:4px;">${point.group}</div>
+            <div style="color:#42546f; margin-bottom:6px;">${point.city}</div>
+            <div>Расходы: <b>${formatInt(point.ad_spend)}</b></div>
+            <div>Валовая прибыль: <b>${formatInt(point.gross_profit_total)}</b></div>
+            <div>ВП Моторка: <b>${formatInt(point.gross_profit_motor)}</b></div>
+            <div>ВП Прочее: <b>${formatInt(point.gross_profit_other)}</b></div>
+            <div>Продажи: <b>${formatInt(point.sales_total)}</b></div>
+            <div>ROI: <b>${format2(point.roi_total)}x</b></div>
+          </div>
+        `);
+      });
+    };
+
+    const applyMonthState = (month) => {
+      const state = getMonthState(month);
+      const campaignState = getMonthCampaignState(month);
+      const metrics = getMetricsByMonth(month);
+      if (groupChartTitle) {
+        groupChartTitle.textContent = `Сравнение групп: расходы vs прибыль (${month})`;
+      }
+      if (salesShareTitle) {
+        salesShareTitle.textContent = `Структура продаж по группам (${month})`;
+      }
+      if (groupTableTitle) {
+        groupTableTitle.textContent = `Сводка групп (${month})`;
+      }
+      if (mapTitle) {
+        mapTitle.textContent = `Карта эффективности по группам (${month})`;
+      }
+      if (topCampaignsTitle) {
+        topCampaignsTitle.textContent = `Топ кампаний по расходам (${month})`;
+      }
+      if (topCampaignsSectionTitle) {
+        topCampaignsSectionTitle.textContent = `Рейтинг кампаний (${month})`;
+      }
+
+      if (metrics) {
+        if (kpiAdSpendValue) kpiAdSpendValue.textContent = formatInt(metrics.ad_spend);
+        if (kpiAdSpendNote) kpiAdSpendNote.textContent = `за ${month}`;
+        if (kpiProfitValue) kpiProfitValue.textContent = formatInt(metrics.gross_profit_total);
+        if (kpiProfitNote) kpiProfitNote.textContent = `итого по всем группам за ${month}`;
+        if (kpiMotorValue) kpiMotorValue.textContent = formatInt(metrics.gross_profit_motor);
+        if (kpiMotorNote) kpiMotorNote.textContent = `доля ${pctText(metrics.motor_share)}`;
+        if (kpiOtherValue) kpiOtherValue.textContent = formatInt(metrics.gross_profit_other);
+        if (kpiOtherNote) kpiOtherNote.textContent = `без моторного отдела за ${month}`;
+        if (kpiRoiValue) kpiRoiValue.textContent = `${format2(metrics.roi_total)}x`;
+        if (kpiSalesLeadsValue) {
+          kpiSalesLeadsValue.textContent = `${formatInt(metrics.sales_total)} / ${formatInt(metrics.primary_leads)}`;
+        }
+        if (kpiSalesLeadsNote) {
+          kpiSalesLeadsNote.textContent = `конверсия ${pctText(metrics.lead_to_sale)}`;
+        }
+
+        const monthIdx = monthToIndex[month];
+        const prevMetrics = monthIdx > 0 ? monthlyRows[monthIdx - 1] : metrics;
+        const spendDelta = deltaRatio(metrics.ad_spend, prevMetrics?.ad_spend);
+        const profitDelta = deltaRatio(metrics.gross_profit_total, prevMetrics?.gross_profit_total);
+        const salesDelta = deltaRatio(metrics.sales_total, prevMetrics?.sales_total);
+        applyBadge(badgeSpendDelta, spendDelta <= 0, badgeText("Изм. расходов", spendDelta));
+        applyBadge(badgeProfitDelta, profitDelta >= 0, badgeText("Изм. валовой прибыли", profitDelta));
+        applyBadge(badgeSalesDelta, salesDelta >= 0, badgeText("Изм. продаж", salesDelta));
+      }
+
+      groupChart.data.labels = state.group_chart.labels || [];
+      groupChart.data.datasets[0].data = state.group_chart.ad_spend || [];
+      groupChart.data.datasets[1].data = state.group_chart.gross_profit_total || [];
+      groupChart.update();
+
+      salesShareChart.data.labels = state.sales_share_chart.labels || [];
+      salesShareChart.data.datasets[0].data = state.sales_share_chart.sales_share_pct || [];
+      salesShareChart.update();
+
+      topCampaignChart.data.labels = campaignState.top_campaigns_chart.labels || [];
+      topCampaignChart.data.datasets[0].data = campaignState.top_campaigns_chart.ad_spend || [];
+      topCampaignChart.update();
+
+      renderGroupTable(state.group_table || []);
+      renderTopCampaignTable(campaignState.top_campaign_table || []);
+      renderMapPoints(state);
+    };
+
+    if (monthSelect) {
+      monthSelect.addEventListener("change", (event) => {
+        applyMonthState(event.target.value);
+      });
+    }
+    applyMonthState(initialMonth);
+  </script>
+</body>
+</html>
